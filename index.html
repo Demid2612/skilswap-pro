@@ -7,93 +7,96 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="header">
-    <div class="logo">SkillSwap PRO</div>
-    <div class="header-right">
-      <span id="profileText">Вы не вошли</span>
-    </div>
-  </header>
-
-  <main class="container">
-    <!-- Блок регистрации / логина -->
-    <section id="authBox" class="card">
-      <h2>Регистрация</h2>
-      <div class="form-row">
-        <label for="name">Имя</label>
-        <input id="name" placeholder="Ваше имя" />
+  <!-- ЭКРАН АВТОРИЗАЦИИ -->
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">SkillSwap<span>PRO</span></div>
+      <div class="auth-tabs">
+        <button id="loginTab" class="auth-tab active">Вход</button>
+        <button id="registerTab" class="auth-tab">Регистрация</button>
       </div>
-      <div class="form-row">
+
+      <!-- Форма входа -->
+      <div id="loginForm" class="auth-form active">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com" />
+
+        <label for="loginPassword">Пароль</label>
+        <input id="loginPassword" type="password" placeholder="••••••••" />
+
+        <button id="loginBtn" class="btn primary wide">Войти</button>
+        <p class="auth-hint">
+          Нет аккаунта?
+          <button type="button" class="link-btn" id="toRegisterLink">Создать</button>
+        </p>
+      </div>
+
+      <!-- Форма регистрации -->
+      <div id="registerForm" class="auth-form">
+        <label for="regName">Имя</label>
+        <input id="regName" placeholder="Как к тебе обращаться?" />
+
         <label for="regEmail">Email</label>
-        <input id="regEmail" placeholder="you@example.com" />
-      </div>
-      <div class="form-row">
+        <input id="regEmail" type="email" placeholder="you@example.com" />
+
         <label for="regPassword">Пароль</label>
-        <input id="regPassword" type="password" placeholder="••••••••" />
+        <input id="regPassword" type="password" placeholder="Придумай пароль" />
+
+        <button id="registerBtn" class="btn secondary wide">Зарегистрироваться</button>
+        <p class="auth-hint">
+          Уже есть аккаунт?
+          <button type="button" class="link-btn" id="toLoginLink">Войти</button>
+        </p>
       </div>
-      <button class="btn primary" onclick="registerUser()">Зарегистрироваться</button>
+    </div>
+  </div>
 
-      <hr />
-
-      <h2>Вход</h2>
-      <div class="form-row">
-        <label for="logEmail">Email</label>
-        <input id="logEmail" placeholder="you@example.com" />
+  <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ (видно только после входа) -->
+  <div id="appScreen" class="app-screen" style="display:none;">
+    <header class="app-header">
+      <div class="app-logo">SkillSwap<span>PRO</span></div>
+      <div class="app-user">
+        <span id="userNameText"></span>
+        <button id="logoutBtn" class="btn ghost">Выйти</button>
       </div>
-      <div class="form-row">
-        <label for="logPassword">Пароль</label>
-        <input id="logPassword" type="password" placeholder="••••••••" />
-      </div>
-      <button class="btn secondary" onclick="loginUser()">Войти</button>
-    </section>
+    </header>
 
-    <!-- Основной интерфейс после входа -->
-    <section id="mainBox" style="display:none;">
-      <div class="cards-grid">
-        <!-- Пользователи -->
-        <section class="card">
-          <div class="card-header">
-            <h2>Участники</h2>
-            <button id="reloadUsersBtn" class="btn small">Обновить список</button>
-          </div>
-          <ul id="usersList" class="users-list"></ul>
-        </section>
+    <main class="app-main">
+      <section class="panel users-panel">
+        <div class="panel-header">
+          <h2>Участники</h2>
+          <button id="reloadUsersBtn" class="btn tiny">Обновить</button>
+        </div>
+        <p class="panel-subtitle">
+          Нажми на пользователя, чтобы начать чат.
+        </p>
+        <ul id="usersList" class="users-list"></ul>
+      </section>
 
-        <!-- Чат -->
-        <section class="card">
-          <h2>Мини-чат по ID</h2>
-          <p class="hint">
-            Твой ID подставится автоматически.  
-            Чтобы переписываться с кем-то, узнай его ID из списка слева.
-          </p>
+      <section class="panel chat-panel">
+        <div class="panel-header">
+          <h2 id="chatTitle">Чат</h2>
+          <span id="chatHint" class="panel-subtitle">
+            Выбери пользователя слева, чтобы начать переписку.
+          </span>
+        </div>
 
-          <div class="form-row-inline">
-            <div>
-              <label for="chatFromId">Мой ID</label>
-              <input id="chatFromId" />
-            </div>
-            <div>
-              <label for="chatToId">ID собеседника</label>
-              <input id="chatToId" placeholder="например, 1723456789" />
-            </div>
-            <div class="align-bottom">
-              <button id="reloadChatBtn" class="btn small">Обновить чат</button>
-            </div>
-          </div>
+        <div id="chatMessages" class="chat-messages"></div>
 
-          <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <textarea
+            id="chatInput"
+            placeholder="Напиши сообщение и нажми Enter..."
+          ></textarea>
+          <button id="sendMsgBtn" class="btn primary">Отправить</button>
+        </div>
+      </section>
+    </main>
 
-          <div class="form-row-inline">
-            <textarea id="chatText" placeholder="Напишите сообщение..."></textarea>
-            <button id="sendMsgBtn" class="btn primary">Отправить</button>
-          </div>
-        </section>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <span>SkillSwap PRO — учебный стартап</span>
-  </footer>
+    <footer class="app-footer">
+      SkillSwap PRO · учебный IT-стартап с неоновым вайбом 👾
+    </footer>
+  </div>
 
   <script src="app.js"></script>
 </body>
