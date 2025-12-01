@@ -1,135 +1,98 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>SkillSwap PRO</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>SkillSwap PRO</h1>
-    <p>Платформа обмена навыками между учениками и студентами</p>
+  <header class="header">
+    <div class="logo">SkillSwap PRO</div>
+    <div class="header-right">
+      <span id="profileText">Вы не вошли</span>
+    </div>
   </header>
 
-  <main>
-    <section class="block">
-      <h2>1. Регистрация / вход</h2>
-      <form id="registerForm">
-        <label>
-          Имя:
-          <input type="text" id="name" required>
-        </label>
-        <label>
-          Школа / ВУЗ (необязательно):
-          <input type="text" id="school">
-        </label>
-        <label>
-          Что ты можешь объяснить другим? (через запятую)
-          <input type="text" id="canTeach" placeholder="математика, футбол, монтаж видео" required>
-        </label>
-        <label>
-          Чему хочешь научиться? (через запятую)
-          <input type="text" id="wantLearn" placeholder="английский, дизайн, Python" required>
-        </label>
-        <button type="submit">Сохранить профиль</button>
-      </form>
-      <p id="currentUserInfo"></p>
-    </section>
-
-    <section class="block">
-      <h2>2. Все участники</h2>
-      <button id="reloadUsersBtn">Обновить список</button>
-      <ul id="usersList"></ul>
-    </section>
-
-    <section class="block">
-      <h2>3. Найти совпадения</h2>
-      <button id="findMatchesBtn">Показать совпадения для меня</button>
-      <div id="matches"></div>
-    </section>
-
-    <section class="block">
-      <h2>4. Запросы обмена навыками</h2>
-      <div id="requests"></div>
-    </section>
-
-    <section class="block">
-      <h2>5. Мини-чат</h2>
-      <div class="chat-settings">
-        <label>
-          Мой ID:
-          <input type="text" id="chatFromId" placeholder="твой id (берётся из профиля)">
-        </label>
-        <label>
-          ID собеседника:
-          <input type="text" id="chatToId" placeholder="id другого пользователя">
-        </label>
+  <main class="container">
+    <!-- Блок регистрации / логина -->
+    <section id="authBox" class="card">
+      <h2>Регистрация</h2>
+      <div class="form-row">
+        <label for="name">Имя</label>
+        <input id="name" placeholder="Ваше имя" />
       </div>
-      <div id="chatMessages" class="chat-messages"></div>
-      <div class="chat-input">
-        <input type="text" id="chatText" placeholder="Напиши сообщение...">
-        <button id="sendMsgBtn">Отправить</button>
-        <button id="reloadChatBtn">Обновить чат</button>
+      <div class="form-row">
+        <label for="regEmail">Email</label>
+        <input id="regEmail" placeholder="you@example.com" />
+      </div>
+      <div class="form-row">
+        <label for="regPassword">Пароль</label>
+        <input id="regPassword" type="password" placeholder="••••••••" />
+      </div>
+      <button class="btn primary" onclick="registerUser()">Зарегистрироваться</button>
+
+      <hr />
+
+      <h2>Вход</h2>
+      <div class="form-row">
+        <label for="logEmail">Email</label>
+        <input id="logEmail" placeholder="you@example.com" />
+      </div>
+      <div class="form-row">
+        <label for="logPassword">Пароль</label>
+        <input id="logPassword" type="password" placeholder="••••••••" />
+      </div>
+      <button class="btn secondary" onclick="loginUser()">Войти</button>
+    </section>
+
+    <!-- Основной интерфейс после входа -->
+    <section id="mainBox" style="display:none;">
+      <div class="cards-grid">
+        <!-- Пользователи -->
+        <section class="card">
+          <div class="card-header">
+            <h2>Участники</h2>
+            <button id="reloadUsersBtn" class="btn small">Обновить список</button>
+          </div>
+          <ul id="usersList" class="users-list"></ul>
+        </section>
+
+        <!-- Чат -->
+        <section class="card">
+          <h2>Мини-чат по ID</h2>
+          <p class="hint">
+            Твой ID подставится автоматически.  
+            Чтобы переписываться с кем-то, узнай его ID из списка слева.
+          </p>
+
+          <div class="form-row-inline">
+            <div>
+              <label for="chatFromId">Мой ID</label>
+              <input id="chatFromId" />
+            </div>
+            <div>
+              <label for="chatToId">ID собеседника</label>
+              <input id="chatToId" placeholder="например, 1723456789" />
+            </div>
+            <div class="align-bottom">
+              <button id="reloadChatBtn" class="btn small">Обновить чат</button>
+            </div>
+          </div>
+
+          <div id="chatMessages" class="chat-messages"></div>
+
+          <div class="form-row-inline">
+            <textarea id="chatText" placeholder="Напишите сообщение..."></textarea>
+            <button id="sendMsgBtn" class="btn primary">Отправить</button>
+          </div>
+        </section>
       </div>
     </section>
   </main>
-  <!-- СЕКЦИЯ МОНЕТИЗАЦИИ / ТАРИФЫ -->
-    <section class="block pricing-section">
-      <h2>6. Монетизация SkillSwap PRO</h2>
-      <p style="font-size:13px; color:#cfd3ff;">
-        SkillSwap PRO использует модель <strong>Freemium + Premium</strong>. 
-        Бесплатный доступ остаётся для всех, а расширенные функции доступны в платных тарифах.
-      </p>
 
-      <div class="pricing-grid">
-        <!-- FREE -->
-        <div class="pricing-card">
-          <div class="pricing-title">FREE</div>
-          <div class="pricing-price">0 ₸ / месяц</div>
-          <div class="pricing-desc">Базовый бесплатный доступ для каждого ученика.</div>
-          <ul class="pricing-list">
-            <li>Создание профиля</li>
-            <li>До 3 совпадений в неделю</li>
-            <li>Ограниченный чат (5 сообщений)</li>
-            <li>Стандартный поиск пользователей</li>
-          </ul>
-          <button class="pricing-btn" type="button">Используется</button>
-        </div>
-
-        <!-- PLUS -->
-        <div class="pricing-card popular">
-          <div class="pricing-title">SkillSwap PLUS</div>
-          <div class="pricing-price">990 ₸ / месяц</div>
-          <div class="pricing-desc">Премиум-доступ для активных школьников и студентов.</div>
-          <ul class="pricing-list">
-            <li>Неограниченные совпадения</li>
-            <li>Полный чат без ограничений</li>
-            <li>Приоритет в выдаче рекомендаций</li>
-            <li>Скрытый режим профиля</li>
-            <li>Без рекламы</li>
-          </ul>
-          <button class="pricing-btn" type="button">Подключить</button>
-        </div>
-
-        <!-- SCHOOL PRO -->
-        <div class="pricing-card">
-          <div class="pricing-title">School PRO</div>
-          <div class="pricing-price">49 000 ₸ / месяц</div>
-          <div class="pricing-desc">Тариф для школ, лицеев и колледжей.</div>
-          <ul class="pricing-list">
-            <li>Единый аккаунт для всей школы</li>
-            <li>Панель для учителя и администратора</li>
-            <li>Статистика активности учеников</li>
-            <li>Отчёты и аналитика</li>
-            <li>Брендирование под школу</li>
-          </ul>
-          <button class="pricing-btn" type="button">Для администрации</button>
-        </div>
-      </div>
-    </section>
-
-  <footer>
-    <small>SkillSwap PRO — учебный стартап-проект</small>
+  <footer class="footer">
+    <span>SkillSwap PRO — учебный стартап</span>
   </footer>
 
   <script src="app.js"></script>
