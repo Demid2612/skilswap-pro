@@ -55,7 +55,7 @@ app.post('/api/register', (req, res) => {
     id: Date.now().toString(),
     name,
     email,
-    password, // В учебных целях храним открыто
+    password,
     createdAt: new Date().toISOString()
   };
 
