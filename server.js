@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 const DB_FILE = path.join(__dirname, 'db.json');
 
-// ---------- БАЗА ДАННЫХ ----------
+// ---------- "БАЗА ДАННЫХ" ----------
 function initDb() {
   if (!fs.existsSync(DB_FILE)) {
     const empty = { users: [], messages: [] };
@@ -55,7 +55,7 @@ app.post('/api/register', (req, res) => {
     id: Date.now().toString(),
     name,
     email,
-    password, // в учебных целях без шифрования
+    password, // В учебных целях храним открыто
     createdAt: new Date().toISOString()
   };
 
@@ -96,6 +96,7 @@ app.get('/api/users', (req, res) => {
 });
 
 // ---------- СООБЩЕНИЯ (ЧАТ) ----------
+
 // Получить сообщения между двумя пользователями
 app.get('/api/messages', (req, res) => {
   const { a, b } = req.query;
