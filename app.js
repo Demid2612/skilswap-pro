@@ -1,14 +1,16 @@
-// ==== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====
+// ===== ГЛОБАЛЬНОЕ СОСТОЯНИЕ =====
 let currentUser = null;
+let activeChatUser = null;
+let chatReloadTimer = null;
 
-// ==== ПОМОЩНИК ДЛЯ FETCH ====
+// ===== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ FETCH =====
 async function fetchJson(url, options) {
   const res = await fetch(url, options);
   let data = null;
   try {
     data = await res.json();
   } catch {
-    // игнор
+    // ignore
   }
   if (!res.ok) {
     const msg = data && data.error ? data.error : 'Ошибка запроса';
@@ -17,14 +19,13 @@ async function fetchJson(url, options) {
   return data;
 }
 
-// ==== РАБОТА С ТЕКУЩИМ ПОЛЬЗОВАТЕЛЕМ ====
+// ===== РАБОТА С ТЕКУЩИМ ПОЛЬЗОВАТЕЛЕМ =====
 function saveCurrentUser(user) {
   currentUser = user;
   localStorage.setItem('ss_current_user', JSON.stringify(user));
-  updateUiForAuth();
 }
 
-function loadCurrentUser() {
+function loadCurrentUserFromStorage() {
   const raw = localStorage.getItem('ss_current_user');
   if (!raw) return;
   try {
@@ -32,56 +33,32 @@ function loadCurrentUser() {
   } catch {
     currentUser = null;
   }
-  updateUiForAuth();
 }
 
-// ==== ОБНОВЛЕНИЕ UI ====
-function updateUiForAuth() {
-  const profileText = document.getElementById('profileText');
-  const authBox = document.getElementById('authBox');
-  const mainBox = document.getElementById('mainBox');
-  const chatFromIdInput = document.getElementById('chatFromId');
-
-  if (currentUser) {
-    profileText.textContent = Вы вошли как: ${currentUser.name} (id: ${currentUser.id});
-    authBox.style.display = 'none';
-    mainBox.style.display = 'block';
-    if (chatFromIdInput) chatFromIdInput.value = currentUser.id;
-  } else {
-    profileText.textContent = 'Вы не вошли';
-    authBox.style.display = 'block';
-    mainBox.style.display = 'none';
-  }
+function clearCurrentUser() {
+  currentUser = null;
+  activeChatUser = null;
+  localStorage.removeItem('ss_current_user');
 }
 
-// ==== РЕГИСТРАЦИЯ ====
-async function registerUser() {
-  const name = document.getElementById('name').value.trim();
-  const email = document.getElementById('regEmail').value.trim();
-  const password = document.getElementById('regPassword').value.trim();
-
-  if (!name  !email  !password) {
-    alert('Заполни все поля для регистрации');
-    return;
-  }
-
-  try {
-    const data = await fetchJson('/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
-    });
-    alert('Регистрация прошла успешно! Теперь войди под своим email и паролем.');
-    document.getElementById('logEmail').value = email;
-  } catch (err) {
-    alert(err.message);
-  }
+// ===== ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ =====
+function showAuthScreen() {
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('appScreen').style.display = 'none';
+  stopChatAutoReload();
 }
 
-// ==== ЛОГИН ====
-async function loginUser() {
-  const email = document.getElementById('logEmail').value.trim();
-  const password = document.getElementById('logPassword').value.trim();
+function showAppScreen() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'flex';
+  const nameText = document.getElementById('userNameText');
+  nameText.textContent = ${currentUser.name} · ${currentUser.email};
+}
+
+// ===== АВТОРИЗАЦИЯ =====
+async function handleLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
 
   if (!email || !password) {
     alert('Введите email и пароль');
@@ -95,114 +72,266 @@ async function loginUser() {
       body: JSON.stringify({ email, password })
     });
     saveCurrentUser(data.user);
-    alert(`Добро пожаловать, ${data.user.name}!`);
-    loadUsers();
+    showAppScreen();
+    await loadUsers();
+    resetChatUi();
   } catch (err) {
     alert(err.message);
   }
 }
 
-// ==== СПИСОК ПОЛЬЗОВАТЕЛЕЙ ====
+async function handleRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value.trim();
+
+  if (!name  !email  !password) {
+    alert('Заполни все поля регистрации');
+    return;
+  }
+
+  try {
+    await fetchJson('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+    alert('Регистрация успешна! Теперь войди под своим email и паролем.');
+    // переключаемся на форму логина
+    switchAuthMode('login');
+    document.getElementById('loginEmail').value = email;
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function handleLogout() {
+  clearCurrentUser();
+  resetChatUi();
+  showAuthScreen();
+}
+
+// ===== ПЕРЕКЛЮЧЕНИЕ ТАБОВ ВХОД/РЕГИСТРАЦИЯ =====
+function switchAuthMode(mode) {
+  const loginTab = document.getElementById('loginTab');
+  const registerTab = document.getElementById('registerTab');
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+
+  if (mode === 'login') {
+    loginTab.classList.add('active');
+    registerTab.classList.remove('active');
+    loginForm.classList.add('active');
+    registerForm.classList.remove('active');
+  } else {
+    loginTab.classList.remove('active');
+    registerTab.classList.add('active');
+    loginForm.classList.remove('active');
+    registerForm.classList.add('active');
+  }
+}
+
+// ===== ПОЛЬЗОВАТЕЛИ =====
 async function loadUsers() {
   try {
     const data = await fetchJson('/api/users');
-    const usersList = document.getElementById('usersList');
-    usersList.innerHTML = '';
-    data.users.forEach(u => {
+    const ul = document.getElementById('usersList');
+    ul.innerHTML = '';
+
+    const users = data.users.filter(u => !currentUser || u.id !== currentUser.id);
+
+    if (!users.length) {
       const li = document.createElement('li');
-      li.textContent = ${u.name} — id: ${u.id}, email: ${u.email};
-      usersList.appendChild(li);
+      li.className = 'user-item';
+      li.textContent = 'Пока здесь только ты 🙂';
+      ul.appendChild(li);return;
+    }
+
+    users.forEach(u => {
+      const li = document.createElement('li');
+      li.className = 'user-item';
+      li.dataset.userid = u.id;
+      li.innerHTML = `
+        <div class="user-name">${u.name}</div>
+        <div class="user-meta">id: ${u.id}</div>
+      `;
+      li.addEventListener('click', () => selectChatUser(u, li));
+      ul.appendChild(li);
     });
   } catch (err) {
     console.error(err);
-    alert('Ошибка при загрузке пользователей: ' + err.message);
+    alert('Ошибка загрузки пользователей: ' + err.message);
   }
 }
 
-// ==== ЧАТ ====
-async function loadChat() {
-  const chatFromIdInput = document.getElementById('chatFromId');
-  const chatToIdInput = document.getElementById('chatToId');
+function selectChatUser(user, listItemElement) {
+  activeChatUser = user;
 
-  const a = chatFromIdInput.value.trim();
-  const b = chatToIdInput.value.trim();
-
-  if (!a || !b) {
-    alert('Заполни оба ID для чата');
-    return;
+  // подсветка выбранного
+  document.querySelectorAll('.user-item').forEach(li => {
+    li.classList.remove('active');
+  });
+  if (listItemElement) {
+    listItemElement.classList.add('active');
   }
+
+  const chatTitle = document.getElementById('chatTitle');
+  const chatHint = document.getElementById('chatHint');
+  chatTitle.textContent = Чат с ${user.name};
+  chatHint.textContent = id собеседника: ${user.id};
+
+  loadChat();
+  startChatAutoReload();
+}
+
+// ===== ЧАТ =====
+async function loadChat() {
+  if (!currentUser || !activeChatUser) return;
 
   try {
-    const data = await fetchJson(`/api/messages?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);
-    renderChat(data.messages, a);
+    const data = await fetchJson(
+      /api/messages?a=${encodeURIComponent(currentUser.id)}&b=${encodeURIComponent(activeChatUser.id)}
+    );
+    renderChat(data.messages);
   } catch (err) {
     console.error(err);
-    alert('Ошибка при загрузке чата: ' + err.message);
   }
 }
 
-function renderChat(messages, myId) {
-  const chatMessagesDiv = document.getElementById('chatMessages');
-  chatMessagesDiv.innerHTML = '';
+function renderChat(messages) {
+  const box = document.getElementById('chatMessages');
+  box.innerHTML = '';
+
+  if (!messages.length) {
+    box.innerHTML = '<div class="chat-empty">Пока сообщений нет. Напиши первым 👋</div>';
+    return;
+  }
 
   messages.forEach(m => {
     const div = document.createElement('div');
-    div.className = 'chat-message' + (m.fromId === myId ? ' me' : '');
+    div.className = 'chat-message';
+    if (m.fromId === currentUser.id) {
+      div.classList.add('me');
+    }
+
     const time = new Date(m.createdAt).toLocaleTimeString();
-    div.innerHTML = <span class="time">[${time}]</span> <strong>${m.fromId}</strong>: ${m.text};
-    chatMessagesDiv.appendChild(div);
+    const who = m.fromId === currentUser.id ? 'Ты' : 'Он/Она';
+
+    div.innerHTML = `
+      <div class="chat-meta">
+        <span class="chat-who">${who}</span>
+        <span class="chat-time">${time}</span>
+      </div>
+      <div class="chat-text">${escapeHtml(m.text)}</div>
+    `;
+    box.appendChild(div);
   });
 
-  chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  box.scrollTop = box.scrollHeight;
 }
 
 async function sendMessage() {
-  const chatFromIdInput = document.getElementById('chatFromId');
-  const chatToIdInput = document.getElementById('chatToId');
-  const chatTextInput = document.getElementById('chatText');
-
-  const fromId = chatFromIdInput.value.trim();
-  const toId = chatToIdInput.value.trim();
-  const text = chatTextInput.value.trim();
-
-  if (!fromId  !toId  !text) {
-    alert('Заполни ID и текст сообщения');
+  if (!currentUser || !activeChatUser) {
+    alert('Сначала выбери собеседника слева');
     return;
   }
+
+  const textarea = document.getElementById('chatInput');
+  const text = textarea.value.trim();
+  if (!text) return;
 
   try {
     await fetchJson('/api/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fromId, toId, text })
+      body: JSON.stringify({
+        fromId: currentUser.id,
+        toId: activeChatUser.id,
+        text
+      })
     });
-    chatTextInput.value = '';
+    textarea.value = '';
     await loadChat();
   } catch (err) {
-    console.error(err);
-    alert('Ошибка при отправке сообщения: ' + err.message);
+    alert('Ошибка отправки сообщения: ' + err.message);
   }
 }
 
-// ==== ИНИЦИАЛИЗАЦИЯ ====
+function resetChatUi() {
+  const box = document.getElementById('chatMessages');
+  const title = document.getElementById('chatTitle');
+  const hint = document.getElementById('chatHint');
+  const textarea = document.getElementById('chatInput');
+
+  activeChatUser = null;
+  stopChatAutoReload();
+  if (box) box.innerHTML = '';
+  if (title) title.textContent = 'Чат';
+  if (hint) hint.textContent = 'Выбери пользователя слева, чтобы начать переписку.';
+  if (textarea) textarea.value = '';
+}
+
+// автообновление чата
+function startChatAutoReload() {
+  stopChatAutoReload();
+  chatReloadTimer = setInterval(loadChat, 4000);
+}
+
+function stopChatAutoReload() {
+  if (chatReloadTimer) {
+    clearInterval(chatReloadTimer);
+    chatReloadTimer = null;
+  }
+}
+
+// ===== УТИЛИТА: ЭСКЕЙП HTML =====
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ===== ИНИЦИАЛИЗАЦИЯ =====
 window.addEventListener('DOMContentLoaded', () => {
+  // элементы
+  const loginTab = document.getElementById('loginTab');
+  const registerTab = document.getElementById('registerTab');
+  const toRegisterLink = document.getElementById('toRegisterLink');
+  const toLoginLink = document.getElementById('toLoginLink');const loginBtn = document.getElementById('loginBtn');
+  const registerBtn = document.getElementById('registerBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
   const reloadUsersBtn = document.getElementById('reloadUsersBtn');
   const sendMsgBtn = document.getElementById('sendMsgBtn');
-  const reloadChatBtn = document.getElementById('reloadChatBtn');
-  const chatTextInput = document.getElementById('chatText');
+  const chatInput = document.getElementById('chatInput');
 
-  if (reloadUsersBtn) reloadUsersBtn.addEventListener('click', loadUsers);
-  if (sendMsgBtn) sendMsgBtn.addEventListener('click', sendMessage);
-  if (reloadChatBtn) reloadChatBtn.addEventListener('click', loadChat);
-  if (chatTextInput) {
-    chatTextInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
+  // переключение вкладок
+  loginTab.addEventListener('click', () => switchAuthMode('login'));
+  registerTab.addEventListener('click', () => switchAuthMode('register'));
+  toRegisterLink.addEventListener('click', () => switchAuthMode('register'));
+  toLoginLink.addEventListener('click', () => switchAuthMode('login'));
+
+  // кнопки
+  loginBtn.addEventListener('click', handleLogin);
+  registerBtn.addEventListener('click', handleRegister);
+  logoutBtn.addEventListener('click', handleLogout);
+  reloadUsersBtn.addEventListener('click', loadUsers);
+  sendMsgBtn.addEventListener('click', sendMessage);
+
+  // Enter для отправки сообщений
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // если уже сохранён пользователь — сразу показываем приложение
+  loadCurrentUserFromStorage();
+  if (currentUser) {
+    showAppScreen();
+    loadUsers();
+  } else {
+    showAuthScreen();
   }
-
-  loadCurrentUser();
-  loadUsers();
 });
